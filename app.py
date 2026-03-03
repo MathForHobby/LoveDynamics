@@ -4,23 +4,23 @@ import plotly.graph_objects as go
 import plotly.figure_factory as ff
 from scipy.integrate import odeint
 
-# 1. 미분방정식 모델 정의
+# 1. 미분방정식 모델 정의 (발산 억제 로직 포함)
 def love_dynamics(state, t, a, b, c, d, Sx, Sy, k=0.1):
     x, y = state
     # 변화량 계산
     dxdt = a*x + b*y - k*x*(x - Sx)
     dydt = c*x + d*y - k*y*(y - Sy)
     
-    # 수치 폭주 방지 (안전 장치)
-    dxdt = np.clip(dxdt, -50, 50)
-    dydt = np.clip(dydt, -50, 50)
+    # 그래프가 터지지 않게 수치 하드캡 설정 (Clipping)
+    dxdt = np.clip(dxdt, -20, 20)
+    dydt = np.clip(dydt, -20, 20)
     return [dxdt, dydt]
 
 # --- 페이지 설정 ---
 st.set_page_config(page_title="Love Dynamics Lab", page_icon="💖", layout="centered")
 
 st.title("💖 연애 성향 미분방정식 연구소")
-st.write("세밀한 수치로 분석하는 우리 관계의 역동성")
+st.write("0.1 단위의 세밀한 수치로 분석하는 우리 관계의 역동성")
 
 # URL 파라미터 확인
 user1_params = st.query_params
@@ -71,12 +71,6 @@ else:
                 t = np.linspace(0, 50, 1000)
                 sol = odeint(love_dynamics, [1.0, 1.0], t, args=(a, b, c, d, Sx, Sy))
 
-                # 벡터 필드 설정
-                limit = 12
-                x_g, y_g = np.meshgrid(np.linspace(-limit, limit, 20), np.linspace(-limit, limit, 20))
-                U = a*x_g + b*y_g - 0.1*x_g*(x_g - Sx)
-                V = c*x_g + d*y_g - 0.1*y_g*(y_g - Sy)
-
-                # 시각화 (ff.create_quiver 배경)
-                fig = ff.create_quiver(x_g, y_g, U, V, scale=0.15, arrow_scale=0.3,
-                                       name='감정 기류', line=dict(width=1, color='rgba(100,100,
+                # 벡터 필드 설정 (범위를 -15 ~ 15로 고정)
+                limit = 15
+                x_g, y_g = np.meshgrid(np.linspace(-
