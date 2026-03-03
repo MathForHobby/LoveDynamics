@@ -73,4 +73,45 @@ else:
 
                 # 벡터 필드 설정 (범위를 -15 ~ 15로 고정)
                 limit = 15
-                x_g, y_g = np.meshgrid(np.linspace(-
+                x_g, y_g = np.meshgrid(np.linspace(-limit, limit, 20), np.linspace(-limit, limit, 20))
+                
+                # 각 지점에서의 기울기 계산
+                U = a*x_g + b*y_g - 0.1*x_g*(x_g - Sx)
+                V = c*x_g + d*y_g - 0.1*y_g*(y_g - Sy)
+
+                # 시각화 (ff.create_quiver) - 화살표가 잘 보이도록 정규화(Normalize)
+                # 화살표 크기가 너무 커지거나 작아지는 것을 방지
+                mag = np.sqrt(U**2 + V**2)
+                mag[mag == 0] = 1 # 0 나누기 방지
+                U_norm = U / mag
+                V_norm = V / mag
+
+                fig = ff.create_quiver(x_g, y_g, U_norm, V_norm, scale=0.5, arrow_scale=0.3,
+                                       name='감정 기류', line=dict(width=1, color='rgba(100,100,100,0.2)'))
+                
+                # 궤적 데이터 필터링 (화면 밖으로 나가는 선 정리)
+                mask = (np.abs(sol[:, 0]) <= limit) & (np.abs(sol[:, 1]) <= limit)
+                safe_sol = sol[mask]
+                
+                if len(safe_sol) > 0:
+                    fig.add_trace(go.Scatter(x=safe_sol[:, 0], y=safe_sol[:, 1], mode='lines', 
+                                             line=dict(color='red', width=4), name='우리의 궤적'))
+                    # 하트 대신 에러 없는 diamond 사용
+                    fig.add_trace(go.Scatter(x=[safe_sol[0,0]], y=[safe_sol[0,1]], mode='markers', 
+                                             marker=dict(color='green', size=12, symbol='diamond'), name='만남의 시작'))
+                    # 별 모양 표시
+                    fig.add_trace(go.Scatter(x=[safe_sol[-1,0]], y=[safe_sol[-1,1]], mode='markers', 
+                                             marker=dict(color='orange', size=12, symbol='star'), name='관계의 미래'))
+
+                fig.update_layout(
+                    title="💓 관계 역동 시뮬레이션 (Phase Plane)",
+                    xaxis=dict(title="파트너 1", range=[-limit-1, limit+1], zeroline=True),
+                    yaxis=dict(title="파트너 2", range=[-limit-1, limit+1], zeroline=True),
+                    width=800, height=800, template="plotly_white"
+                )
+                
+                st.plotly_chart(fig)
+                st.success("분석 완료! 배경의 화살표는 두 사람의 감정이 흐르는 '기류'를 나타냅니다.")
+                
+            except Exception as e:
+                st.error(f"오류가 발생했습니다: {e}")
