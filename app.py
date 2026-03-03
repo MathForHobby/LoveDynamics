@@ -17,26 +17,20 @@ BASE_URL = "https://lovedynamics-4teoqsnmeny3e3ag4liatw.streamlit.app/"
 
 st.title("💖 연애 성향 미분방정식 연구소")
 
-# URL 파라미터 확인 (딕셔너리 형태로 안전하게 가져오기)
 params = st.query_params
 
-# 세션 상태 초기화
 if 'start_point' not in st.session_state:
     st.session_state['start_point'] = [1.0, 1.0]
 
-# 문자열을 안전하게 숫자로 변환하는 함수
 def safe_float(key, default=0.0):
     try:
         val = params.get(key)
         if val is None: return default
-        # 리스트 형태일 경우 첫 번째 요소 추출, 아니면 그대로 변환
         raw_val = val[0] if isinstance(val, list) else val
         return float(raw_val)
-    except (ValueError, TypeError, IndexError):
-        return default
+    except: return default
 
-# --- 상황 1: 파트너 1 진단 (최초 접속 혹은 파라미터 부족) ---
-# 필수 파라미터(a, b, sx)가 하나라도 없으면 진단 폼을 보여줌
+# --- 상황 1: 파트너 1 진단 ---
 if not all(k in params for k in ["a", "b", "sx"]):
     st.header("👤 파트너 1: 정밀 성향 진단")
     with st.form("user1_form"):
@@ -53,13 +47,12 @@ if not all(k in params for k in ["a", "b", "sx"]):
         if st.form_submit_button("진단 완료 및 공유 링크 생성"):
             calc_a, calc_b, calc_sx = round((a_1 + a_2) / 2, 2), round((b_1 - b_2) / 2, 2), round((s_1 + s_2) / 2, 2)
             link = f"{BASE_URL}?a={calc_a}&b={calc_b}&sx={calc_sx}"
-            st.success("진단 완료! 파트너에게 이 링크를 보내세요.")
+            st.success("파트너 2에게 이 링크를 보내세요!")
             st.code(link)
 
-# --- 상황 2: 파트너 2 진단 혹은 결과 확인 ---
+# --- 상황 2: 파트너 2 진단 및 최종 분석 ---
 else:
     has_p2_data = "d" in params
-    
     if not has_p2_data and not st.session_state.get('result_ready'):
         st.header("👤 파트너 2: 정밀 성향 진단")
         with st.form("user2_form"):
@@ -81,29 +74,21 @@ else:
                 st.session_state['p2_vals'] = [calc_d, calc_c, calc_sy]
                 st.rerun()
     
-    # 결과 화면 출력
     if has_p2_data or st.session_state.get('result_ready'):
-        # 안전한 데이터 로드
-        a = safe_float("a")
-        b = safe_float("b")
-        sx = safe_float("sx")
-        
-        if has_p2_data:
-            d, c, sy = safe_float("d"), safe_float("c"), safe_float("sy")
-        else:
-            d, c, sy = st.session_state['p2_vals']
+        a, b, sx = safe_float("a"), safe_float("b"), safe_float("sx")
+        if has_p2_data: d, c, sy = safe_float("d"), safe_float("c"), safe_float("sy")
+        else: d, c, sy = st.session_state['p2_vals']
 
         st.subheader("🔬 최종 관계 시뮬레이션")
         if not has_p2_data:
             st.warning("🔗 파트너 1에게 결과를 공유하려면 아래 링크를 보내주세요.")
             st.code(st.session_state['res_link'])
 
-        # 미분방정식 및 그래프 로직 (생략 없이 실행)
         limit = 15
-        t = np.linspace(0, 30, 1000)
+        t = np.linspace(0, 50, 1000) # 더 긴 미래 분석을 위해 시간 연장
         sol = odeint(love_dynamics, st.session_state['start_point'], t, args=(a, b, c, d, sx, sy))
         
-        # 벡터장 및 궤적 시각화
+        # 그래프 시각화 로직
         x_g, y_g = np.meshgrid(np.linspace(-limit, limit, 18), np.linspace(-limit, limit, 18))
         U = a*x_g + b*y_g - 0.1*x_g*(x_g - sx)
         V = c*x_g + d*y_g - 0.1*y_g*(y_g - sy)
@@ -115,16 +100,36 @@ else:
         mask = (np.abs(sol[:, 0]) <= limit+5) & (np.abs(sol[:, 1]) <= limit+5)
         safe_sol = sol[mask]
         if len(safe_sol) > 0:
-            fig.add_trace(go.Scatter(x=safe_sol[:, 0], y=safe_sol[:, 1], mode='lines', line=dict(color='red', width=4), name='궤적'))
+            fig.add_trace(go.Scatter(x=safe_sol[:, 0], y=safe_sol[:, 1], mode='lines', line=dict(color='red', width=4), name='사랑의 궤적'))
             fig.add_trace(go.Scatter(x=[safe_sol[0,0]], y=[safe_sol[0,1]], mode='markers', marker=dict(color='green', size=15, symbol='diamond'), name='시작점'))
             fig.add_trace(go.Scatter(x=[safe_sol[-1,0]], y=[safe_sol[-1,1]], mode='markers', marker=dict(color='orange', size=15, symbol='star'), name='도착점'))
 
-        fig.update_layout(xaxis=dict(range=[-limit-1, limit+1], zeroline=True), yaxis=dict(range=[-limit-1, limit+1], zeroline=True), height=700, template="plotly_white", clickmode='event+select')
-        
+        fig.update_layout(xaxis=dict(range=[-limit-1, limit+1], zeroline=True), yaxis=dict(range=[-limit-1, limit+1], zeroline=True), height=600, template="plotly_white", clickmode='event+select')
         event = st.plotly_chart(fig, use_container_width=True, on_select="rerun")
         if event and "selection" in event and len(event["selection"]["points"]) > 0:
             p = event["selection"]["points"][0]
             st.session_state['start_point'] = [p['x'], p['y']]
             st.rerun()
 
-        st.info(f"💡 분석 요약: 파트너 1 성향({a:.1f}, {b:.1f}) | 파트너 2 성향({d:.1f}, {c:.1f})")
+        # --- 핵심 포인트: 미래 예언 브리핑 섹션 ---
+        st.divider()
+        st.subheader("📊 연구소의 최종 관계 예보")
+        
+        final_x, final_y = sol[-1]
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("파트너 1의 최종 마음", f"{final_x:.1f}")
+        with col2:
+            st.metric("파트너 2의 최종 마음", f"{final_y:.1f}")
+
+        if final_x > 3 and final_y > 3:
+            st.success("✨ **결과: 해피엔딩 수렴형**\n\n두 분의 감정은 시간이 흐를수록 서로를 향해 강력하게 고정됩니다. 어떤 사소한 갈등이 있어도 결국은 서로의 품으로 돌아오는 아주 안정적인 관계입니다. 축하드려요!")
+        elif final_x < -3 and final_y < -3:
+            st.error("⚠️ **결과: 차가운 발산형**\n\n현재의 성향 조합으로는 시간이 지날수록 서로에게 상처를 주거나 거리가 멀어질 위험이 큽니다. 서로의 '방어기제'를 이해하고 대화 방식을 획기적으로 바꿔야 할 타이밍입니다.")
+        elif (final_x * final_y < 0):
+            st.info("💫 **결과: 애매한 엇갈림형**\n\n한 명은 열정적이지만 한 명은 차가워지는, 혹은 서로의 타이밍이 계속 어긋나는 기류가 보입니다. 헌신과 배려의 균형을 맞추는 연습이 필요합니다.")
+        else:
+            st.warning("🌀 **결과: 다이나믹 진동형**\n\n감정이 뜨거웠다 차가웠다를 반복하는 롤러코스터 같은 관계입니다. 이 긴장감을 즐길 수도 있지만, 장기적으로는 감정 소모가 클 수 있으니 주의하세요.")
+        
+        st.write("💡 **Tip:** 위 그래프의 다른 지점을 클릭해보세요. '만약 우리가 다르게 시작했다면?'에 대한 답을 얻을 수 있습니다.")
