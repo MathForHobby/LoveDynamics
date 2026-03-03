@@ -17,15 +17,27 @@ BASE_URL = "https://lovedynamics-4teoqsnmeny3e3ag4liatw.streamlit.app/"
 
 st.title("💖 연애 성향 미분방정식 연구소")
 
-# URL 파라미터 확인
+# URL 파라미터 확인 (딕셔너리 형태로 안전하게 가져오기)
 params = st.query_params
 
 # 세션 상태 초기화
 if 'start_point' not in st.session_state:
     st.session_state['start_point'] = [1.0, 1.0]
 
-# --- 상황 1: 파트너 1 진단 (최초 접속) ---
-if not params:
+# 문자열을 안전하게 숫자로 변환하는 함수
+def safe_float(key, default=0.0):
+    try:
+        val = params.get(key)
+        if val is None: return default
+        # 리스트 형태일 경우 첫 번째 요소 추출, 아니면 그대로 변환
+        raw_val = val[0] if isinstance(val, list) else val
+        return float(raw_val)
+    except (ValueError, TypeError, IndexError):
+        return default
+
+# --- 상황 1: 파트너 1 진단 (최초 접속 혹은 파라미터 부족) ---
+# 필수 파라미터(a, b, sx)가 하나라도 없으면 진단 폼을 보여줌
+if not all(k in params for k in ["a", "b", "sx"]):
     st.header("👤 파트너 1: 정밀 성향 진단")
     with st.form("user1_form"):
         st.subheader("📍 [자기 감정] 내 마음의 움직임")
@@ -39,17 +51,16 @@ if not params:
         s_2 = st.slider("질문 6. 새로운 사람에게 마음의 문을 완전히 열기까지 시간이 꽤 오래 걸린다.", -5.0, 5.0, 0.0, step=0.1)
         
         if st.form_submit_button("진단 완료 및 공유 링크 생성"):
-            calc_a, calc_b, calc_sx = (a_1 + a_2) / 2, (b_1 - b_2) / 2, (s_1 + s_2) / 2
+            calc_a, calc_b, calc_sx = round((a_1 + a_2) / 2, 2), round((b_1 - b_2) / 2, 2), round((s_1 + s_2) / 2, 2)
             link = f"{BASE_URL}?a={calc_a}&b={calc_b}&sx={calc_sx}"
-            st.success("파트너 2에게 이 링크를 보내 성향을 확인하세요!")
+            st.success("진단 완료! 파트너에게 이 링크를 보내세요.")
             st.code(link)
 
-# --- 상황 2: 파트너 2 진단 혹은 최종 결과 확인 ---
+# --- 상황 2: 파트너 2 진단 혹은 결과 확인 ---
 else:
-    # 파트너 2의 데이터가 이미 URL에 포함되어 있는지 확인 (결과 공유 모드)
     has_p2_data = "d" in params
     
-    if not has_p2_data:
+    if not has_p2_data and not st.session_state.get('result_ready'):
         st.header("👤 파트너 2: 정밀 성향 진단")
         with st.form("user2_form"):
             st.subheader("📍 [자기 감정] 내 마음의 움직임")
@@ -63,66 +74,57 @@ else:
             sy_2 = st.slider("질문 6. 새로운 사람에게 마음의 문을 완전히 열기까지 시간이 꽤 오래 걸린다.", -5.0, 5.0, 0.0, step=0.1)
             
             if st.form_submit_button("우리 관계 분석 결과 보기"):
-                # 파트너 2의 계산값
-                calc_d, calc_c, calc_sy = (d_1 + d_2) / 2, (c_1 - c_2) / 2, (sy_1 + sy_2) / 2
-                # 모든 파라미터를 포함한 새로운 결과 URL 생성
-                res_link = f"{BASE_URL}?a={params['a'][0]}&b={params['b'][0]}&sx={params['sx'][0]}&d={calc_d}&c={calc_c}&sy={calc_sy}"
+                calc_d, calc_c, calc_sy = round((d_1 + d_2) / 2, 2), round((c_1 - c_2) / 2, 2), round((sy_1 + sy_2) / 2, 2)
+                res_link = f"{BASE_URL}?a={params['a']}&b={params['b']}&sx={params['sx']}&d={calc_d}&c={calc_c}&sy={calc_sy}"
                 st.session_state['result_ready'] = True
                 st.session_state['res_link'] = res_link
                 st.session_state['p2_vals'] = [calc_d, calc_c, calc_sy]
-    
-    # 분석 데이터가 로드된 경우 (직접 입력 후 혹은 공유 링크 접속 시)
-    if has_p2_data or st.session_state.get('result_ready'):
-        try:
-            # 파라미터 파싱
-            a = float(params.get("a")[0])
-            b = float(params.get("b")[0])
-            sx = float(params.get("sx")[0])
-            if has_p2_data:
-                d, c, sy = float(params.get("d")[0]), float(params.get("c")[0]), float(params.get("sy")[0])
-            else:
-                d, c, sy = st.session_state['p2_vals']
-
-            st.divider()
-            st.subheader("🔬 최종 관계 시뮬레이션 결과")
-            
-            # 결과 공유 섹션 (파트너 2 화면에만 표시)
-            if not has_p2_data:
-                st.warning("🔗 파트너 1도 이 결과를 보게 하려면 아래 링크를 전달하세요!")
-                st.code(st.session_state['res_link'])
-
-            # 그래프 및 분석 로직 (기존과 동일)
-            limit = 15
-            t = np.linspace(0, 30, 1000)
-            sol = odeint(love_dynamics, st.session_state['start_point'], t, args=(a, b, c, d, sx, sy))
-            
-            # [이미지 태그 삽입 위치]
-            # 
-            
-            # (그래프 그리는 Plotly 코드는 이전과 동일하게 유지...)
-            x_g, y_g = np.meshgrid(np.linspace(-limit, limit, 18), np.linspace(-limit, limit, 18))
-            U = a*x_g + b*y_g - 0.1*x_g*(x_g - sx)
-            V = c*x_g + d*y_g - 0.1*y_g*(y_g - sy)
-            mag = np.sqrt(U**2 + V**2); mag[mag == 0] = 1
-            fig = ff.create_quiver(x_g, y_g, U/mag, V/mag, scale=0.7, name='기류', line=dict(width=1.5, color='rgba(150,150,150,0.3)'))
-            
-            mask = (np.abs(sol[:, 0]) <= limit+5) & (np.abs(sol[:, 1]) <= limit+5)
-            safe_sol = sol[mask]
-            if len(safe_sol) > 0:
-                fig.add_trace(go.Scatter(x=safe_sol[:, 0], y=safe_sol[:, 1], mode='lines', line=dict(color='red', width=4), name='궤적'))
-                fig.add_trace(go.Scatter(x=[safe_sol[0,0]], y=[safe_sol[0,1]], mode='markers', marker=dict(color='green', size=15, symbol='diamond'), name='시작점'))
-                fig.add_trace(go.Scatter(x=[safe_sol[-1,0]], y=[safe_sol[-1,1]], mode='markers', marker=dict(color='orange', size=15, symbol='star'), name='도착점'))
-
-            fig.update_layout(xaxis=dict(range=[-limit-1, limit+1], zeroline=True), yaxis=dict(range=[-limit-1, limit+1], zeroline=True), height=700, template="plotly_white", clickmode='event+select')
-            event = st.plotly_chart(fig, use_container_width=True, on_select="rerun")
-            if event and "selection" in event and len(event["selection"]["points"]) > 0:
-                p = event["selection"]["points"][0]
-                st.session_state['start_point'] = [p['x'], p['y']]
                 st.rerun()
-            
-            # 최종 분석 멘트 출력...
-            st.write("---")
-            st.info("💡 위 그래프는 두 사람의 성향이 결합되었을 때 나타나는 감정의 흐름도입니다.")
+    
+    # 결과 화면 출력
+    if has_p2_data or st.session_state.get('result_ready'):
+        # 안전한 데이터 로드
+        a = safe_float("a")
+        b = safe_float("b")
+        sx = safe_float("sx")
+        
+        if has_p2_data:
+            d, c, sy = safe_float("d"), safe_float("c"), safe_float("sy")
+        else:
+            d, c, sy = st.session_state['p2_vals']
 
-        except Exception as e:
-            st.error(f"데이터 로드 중 오류 발생: {e}")
+        st.subheader("🔬 최종 관계 시뮬레이션")
+        if not has_p2_data:
+            st.warning("🔗 파트너 1에게 결과를 공유하려면 아래 링크를 보내주세요.")
+            st.code(st.session_state['res_link'])
+
+        # 미분방정식 및 그래프 로직 (생략 없이 실행)
+        limit = 15
+        t = np.linspace(0, 30, 1000)
+        sol = odeint(love_dynamics, st.session_state['start_point'], t, args=(a, b, c, d, sx, sy))
+        
+        # 벡터장 및 궤적 시각화
+        x_g, y_g = np.meshgrid(np.linspace(-limit, limit, 18), np.linspace(-limit, limit, 18))
+        U = a*x_g + b*y_g - 0.1*x_g*(x_g - sx)
+        V = c*x_g + d*y_g - 0.1*y_g*(y_g - sy)
+        mag = np.sqrt(U**2 + V**2); mag[mag == 0] = 1
+        
+        
+
+        fig = ff.create_quiver(x_g, y_g, U/mag, V/mag, scale=0.7, name='기류', line=dict(width=1.5, color='rgba(150,150,150,0.3)'))
+        mask = (np.abs(sol[:, 0]) <= limit+5) & (np.abs(sol[:, 1]) <= limit+5)
+        safe_sol = sol[mask]
+        if len(safe_sol) > 0:
+            fig.add_trace(go.Scatter(x=safe_sol[:, 0], y=safe_sol[:, 1], mode='lines', line=dict(color='red', width=4), name='궤적'))
+            fig.add_trace(go.Scatter(x=[safe_sol[0,0]], y=[safe_sol[0,1]], mode='markers', marker=dict(color='green', size=15, symbol='diamond'), name='시작점'))
+            fig.add_trace(go.Scatter(x=[safe_sol[-1,0]], y=[safe_sol[-1,1]], mode='markers', marker=dict(color='orange', size=15, symbol='star'), name='도착점'))
+
+        fig.update_layout(xaxis=dict(range=[-limit-1, limit+1], zeroline=True), yaxis=dict(range=[-limit-1, limit+1], zeroline=True), height=700, template="plotly_white", clickmode='event+select')
+        
+        event = st.plotly_chart(fig, use_container_width=True, on_select="rerun")
+        if event and "selection" in event and len(event["selection"]["points"]) > 0:
+            p = event["selection"]["points"][0]
+            st.session_state['start_point'] = [p['x'], p['y']]
+            st.rerun()
+
+        st.info(f"💡 분석 요약: 파트너 1 성향({a:.1f}, {b:.1f}) | 파트너 2 성향({d:.1f}, {c:.1f})")
