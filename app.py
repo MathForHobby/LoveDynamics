@@ -1,51 +1,65 @@
 import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
-import plotly.figure_factory as ff # 벡터장을 위한 팩토리 추가
+import plotly.figure_factory as ff
 from scipy.integrate import odeint
 
-# (상단 생략: 미분방정식 정의 및 파라미터 수집 로직은 동일)
+# --- 페이지 설정 ---
+st.set_page_config(page_title="Love Dynamics Lab", page_icon="💖")
 
-if analyze:
-    # 계수 확정
-    a, b, Sx = user1_data["a"], user1_data["b"], user1_data["sx"]
-    d, c, Sy = (d_1 + d_2) / 2, (c_1 + c_2) / 2, (sy_1 + sy_2) / 2
+# --- 미분방정식 정의 ---
+def love_dynamics(state, t, a, b, c, d, Sx, Sy, k=0.05):
+    x, y = state
+    dxdt = a*x + b*y - k*x*(x - Sx)
+    dydt = c*x + d*y - k*y*(y - Sy)
+    return [dxdt, dydt]
+
+# --- 메인 화면 ---
+st.title("💖 연애 성향 미분방정식 연구소")
+
+# URL 파라미터 확인
+user1_params = st.query_params
+
+if not user1_params:
+    st.header("👤 파트너 1 진단")
+    with st.form("user1_form"):
+        a_val = (st.slider("질문A (혼자 평온)", -5, 5, 0) + st.slider("질문B (감정 폭발)", -5, 5, 0)) / 2
+        b_val = (st.slider("질문C (즉각 반응)", -5, 5, 0) + st.slider("질문D (회피 성향)", -5, 5, 0)) / 2
+        sx_val = (st.slider("질문E (거리 두기)", -5, 5, 0) + st.slider("질문F (신뢰 속도)", -5, 5, 0)) / 2
+        
+        submit1 = st.form_submit_button("링크 생성")
+        if submit1:
+            link = f"/?a={a_val}&b={b_val}&sx={sx_val}"
+            st.success("상대방에게 이 주소를 공유하세요!")
+            st.code(link)
+
+else:
+    st.header("👤 파트너 2 진단")
+    with st.form("user2_form"):
+        d_val = (st.slider("질문A (혼자 평온)", -5, 5, 0) + st.slider("질문B (감정 폭발)", -5, 5, 0)) / 2
+        c_val = (st.slider("질문C (즉각 반응)", -5, 5, 0) + st.slider("질문D (회피 성향)", -5, 5, 0)) / 2
+        sy_val = (st.slider("질문E (거리 두기)", -5, 5, 0) + st.slider("질문F (신뢰 속도)", -5, 5, 0)) / 2
+        
+        analyze = st.form_submit_button("결과 분석하기")
+        
+        if analyze:
+            # 계수 설정
+            a, b, Sx = float(user1_params["a"]), float(user1_params["b"]), float(user1_params["sx"])
+            d, c, Sy = d_val, c_val, sy_val
             
-    # 1. 궤적 계산 (odeint)
-    t = np.linspace(0, 50, 1000)
-    initial_state = [1.0, 1.0]
-    sol = odeint(love_dynamics, initial_state, t, args=(a, b, c, d, Sx, Sy))
-
-    # 2. 벡터장(화살표) 데이터 생성
-    x_range = np.linspace(-10, 10, 20)
-    y_range = np.linspace(-10, 10, 20)
-    X, Y = np.meshgrid(x_range, y_range)
+            # 궤적 계산
+            t = np.linspace(0, 50, 1000)
+            sol = odeint(love_dynamics, [1.0, 1.0], t, args=(a, b, c, d, Sx, Sy))
             
-    # 각 격자점에서의 기울기(화살표 방향) 계산
-    U = a*X + b*Y - 0.05*X*(X - Sx)
-    V = c*X + d*Y - 0.05*Y*(Y - Sy)
-
-    # 3. Plotly Figure Factory로 화살표 그리기
-    fig = ff.create_quiver(X, Y, U, V, scale=.1, arrow_scale=.3, line=dict(width=1, color='rgba(100, 100, 100, 0.3)'), name='연애의 기류')
-
-    # 4. 그 위에 실제 두 사람의 궤적 추가
-    fig.add_trace(go.Scatter(
-        x=sol[:, 0], y=sol[:, 1], 
-        mode='lines+markers', 
-        marker=dict(size=[10 if i==0 or i==999 else 0 for i in range(1000)]),
-        line=dict(color='red', width=4), 
-        name='우리들의 궤적'
-    ))
-
-    # 레이아웃 정돈
-    fig.update_layout(
-        title="💓 관계의 운명: 위상 평면(Phase Plane) 분석",
-        xaxis=dict(title="사용자 1의 마음", range=[-10, 10]),
-        yaxis=dict(title="사용자 2의 마음", range=[-10, 10]),
-        showlegend=True,
-        width=800, height=800
-    )
-
-    st.plotly_chart(fig)
+            # 벡터장 생성
+            x_range = np.linspace(-10, 10, 15)
+            y_range = np.linspace(-10, 10, 15)
+            X, Y = np.meshgrid(x_range, y_range)
+            U = a*X + b*Y - 0.05*X*(X - Sx)
+            V = c*X + d*Y - 0.05*Y*(Y - Sy)
             
-    # (하단 결과 해석 로직 동일)
+            # 그래프 그리기
+            fig = ff.create_quiver(X, Y, U, V, scale=.1, name='전체 기류', line=dict(width=1, color='gray'))
+            fig.add_trace(go.Scatter(x=sol[:, 0], y=sol[:, 1], mode='lines', line=dict(color='red', width=3), name='우리의 운명'))
+            
+            st.plotly_chart(fig)
