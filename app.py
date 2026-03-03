@@ -15,8 +15,16 @@ def love_dynamics(state, t, a, b, c, d, Sx, Sy, k=0.1):
 st.set_page_config(page_title="Love Dynamics Lab", page_icon="💖", layout="centered")
 BASE_URL = "https://lovedynamics-4teoqsnmeny3e3ag4liatw.streamlit.app/"
 
+# --- 사이드바 홍보 영역 ---
+with st.sidebar:
+    st.markdown("### 🛠️ 제작자 정보")
+    st.write("**Created by 김사무**")
+    st.caption("@취미로배우는수학")
+    st.markdown("---")
+    st.markdown("[📖 수학으로 세상 읽기 (블로그)](https://math4hobby.tistory.com/)")
+    st.info("이 앱은 연애의 역동성을 비선형 미분방정식으로 모델링한 심리 시뮬레이션입니다.")
+
 st.title("💖 연애 성향 미분방정식 연구소")
-st.write("우리 관계의 수학적 흐름을 분석하고 미래를 예측합니다.")
 
 params = st.query_params
 
@@ -42,7 +50,6 @@ if not all(k in params for k in ["a", "b", "sx", "init_x"]):
         st.subheader("📍 [방어기제] 마음을 여는 속도")
         s_1 = st.slider("질문 5. 상대가 확실한 신뢰를 주기 전까지는 어느 정도 거리를 두려고 노력한다.", -5.0, 5.0, 0.0, step=0.1)
         s_2 = st.slider("질문 6. 새로운 사람에게 마음의 문을 완전히 열기까지 시간이 꽤 오래 걸린다.", -5.0, 5.0, 0.0, step=0.1)
-        
         st.subheader("📍 [첫 만남] 관계의 시작점")
         init_x = st.slider("질문 7. 파트너를 처음 알게 되었을 때 느꼈던 호감의 정도는 어떠했나요?", -5.0, 5.0, 1.0, step=0.1)
         
@@ -67,8 +74,7 @@ else:
             st.subheader("📍 [방어기제]")
             sy_1 = st.slider("질문 5. 상대가 확실한 신뢰를 주기 전까지는 어느 정도 거리를 두려고 노력한다.", -5.0, 5.0, 0.0, step=0.1)
             sy_2 = st.slider("질문 6. 새로운 사람에게 마음의 문을 완전히 열기까지 시간이 꽤 오래 걸린다.", -5.0, 5.0, 0.0, step=0.1)
-            
-            st.subheader("📍 [첫 만남] 관계의 시작점")
+            st.subheader("📍 [첫 만남]")
             init_y = st.slider("질문 7. 파트너를 처음 알게 되었을 때 느꼈던 호감의 정도는 어떠했나요?", -5.0, 5.0, 1.0, step=0.1)
             
             if st.form_submit_button("우리 관계 분석 결과 보기"):
@@ -79,32 +85,29 @@ else:
                 st.session_state['p2_vals'] = [calc_d, calc_c, calc_sy, init_y]
                 st.rerun()
     
-    # 결과 화면 출력
     if has_p2_data or st.session_state.get('result_ready'):
         a, b, sx, init_x = safe_float("a"), safe_float("b"), safe_float("sx"), safe_float("init_x")
-        if has_p2_data:
-            d, c, sy, init_y = safe_float("d"), safe_float("c"), safe_float("sy"), safe_float("init_y")
-        else:
-            d, c, sy, init_y = st.session_state['p2_vals']
+        if has_p2_data: d, c, sy, init_y = safe_float("d"), safe_float("c"), safe_float("sy"), safe_float("init_y")
+        else: d, c, sy, init_y = st.session_state['p2_vals']
 
         st.subheader("🔬 최종 관계 시뮬레이션 결과")
         if not has_p2_data:
             st.warning("🔗 파트너 1에게 결과를 공유하려면 아래 링크를 보내주세요.")
             st.code(st.session_state['res_link'])
 
-        # 시작점을 질문 7번 값으로 고정
+        # 미분방정식 시뮬레이션
         start_point = [init_x, init_y]
         limit = 15
         t = np.linspace(0, 50, 1000)
         sol = odeint(love_dynamics, start_point, t, args=(a, b, c, d, sx, sy))
         
-        # 벡터장 계산
+        # 그래프 시각화
         x_g, y_g = np.meshgrid(np.linspace(-limit, limit, 18), np.linspace(-limit, limit, 18))
         U = a*x_g + b*y_g - 0.1*x_g*(x_g - sx)
         V = c*x_g + d*y_g - 0.1*y_g*(y_g - sy)
         mag = np.sqrt(U**2 + V**2); mag[mag == 0] = 1
         
-        fig = ff.create_quiver(x_g, y_g, U/mag, V/mag, scale=0.7, name='감정 기류', line=dict(width=1, color='rgba(150,150,150,0.3)'))
+        fig = ff.create_quiver(x_g, y_g, U/mag, V/mag, scale=0.7, name='기류', line=dict(width=1, color='rgba(150,150,150,0.3)'))
         mask = (np.abs(sol[:, 0]) <= limit+5) & (np.abs(sol[:, 1]) <= limit+5)
         safe_sol = sol[mask]
         
@@ -113,8 +116,8 @@ else:
             fig.add_trace(go.Scatter(x=[safe_sol[0,0]], y=[safe_sol[0,1]], mode='markers', marker=dict(color='green', size=15, symbol='diamond'), name='첫 만남'))
             fig.add_trace(go.Scatter(x=[safe_sol[-1,0]], y=[safe_sol[-1,1]], mode='markers', marker=dict(color='orange', size=15, symbol='star'), name='미래의 우리'))
 
-        fig.update_layout(xaxis=dict(title="파트너 1의 마음", range=[-limit-1, limit+1], zeroline=True), 
-                          yaxis=dict(title="파트너 2의 마음", range=[-limit-1, limit+1], zeroline=True), 
+        fig.update_layout(xaxis=dict(title="파트너 1의 마음", range=[-limit-1, limit+1]), 
+                          yaxis=dict(title="파트너 2의 마음", range=[-limit-1, limit+1]), 
                           height=600, template="plotly_white")
         st.plotly_chart(fig, use_container_width=True)
 
@@ -123,15 +126,17 @@ else:
         st.subheader("📊 연구소의 최종 관계 예보")
         final_x, final_y = sol[-1]
         
-        col1, col2 = st.columns(2)
-        with col1: st.metric("파트너 1의 미래 지수", f"{final_x:.1f}")
-        with col2: st.metric("파트너 2의 미래 지수", f"{final_y:.1f}")
+        if final_x > 3 and final_y > 3: st.success("✨ **결과: 해피엔딩 수렴형**")
+        elif final_x < -3 and final_y < -3: st.error("⚠️ **결과: 차가운 발산형**")
+        else: st.info("💫 **결과: 복합적 기류 발견**")
 
-        if final_x > 3 and final_y > 3:
-            st.success("✨ **결과: 해피엔딩 수렴형**\n\n두 분의 감정은 시간이 흐를수록 서로를 향해 강력하게 고정됩니다. 축하드려요!")
-        elif final_x < -3 and final_y < -3:
-            st.error("⚠️ **결과: 차가운 발산형**\n\n시간이 지날수록 서로에게 상처를 줄 위험이 큽니다. 대화 방식의 변화가 필요합니다.")
-        elif (final_x * final_y < 0):
-            st.info("💫 **결과: 애매한 엇갈림형**\n\n서로의 타이밍이 계속 어긋나는 기류가 보입니다. 균형을 맞추는 연습이 필요합니다.")
-        else:
-            st.warning("🌀 **결과: 다이나믹 진동형**\n\n감정이 롤러코스터 같은 관계입니다. 감정 소모가 클 수 있으니 주의하세요.")
+        # --- 하단 홍보 배너 ---
+        st.markdown("---")
+        col_f1, col_f2 = st.columns([3, 1])
+        with col_f1:
+            st.markdown("🔍 **이 분석 결과가 흥미로우신가요?**")
+            st.write("수학으로 연애와 세상을 해석하는 더 많은 이야기가 준비되어 있습니다.")
+        with col_f2:
+            st.link_button("블로그 방문하기", "https://math4hobby.tistory.com/")
+        
+        st.caption("Created by 김사무 @취미로배우는수학")
