@@ -74,10 +74,17 @@ else:
         
         if analyze:
             try:
-                # 데이터 수집 및 계수 산출
-                a = float(user1_params["a"])
-                b = float(user1_params["b"])
-                Sx = float(user1_params["sx"])
+                # 파라미터 읽기 보강 (리스트 형태여도 첫 번째 값을 가져오도록 함)
+                def get_param_value(key):
+                    val = user1_params.get(key)
+                    if isinstance(val, list): # 만약 값이 리스트 형태라면
+                        return float(val[0])
+                    return float(val)
+
+                # 데이터 수집 (형변환 오류 방지)
+                a = get_param_value("a")
+                b = get_param_value("b")
+                Sx = get_param_value("sx")
                 
                 d = (d_1 + d_2) / 2
                 c = (c_1 + c_2) / 2
