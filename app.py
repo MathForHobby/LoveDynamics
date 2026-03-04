@@ -20,34 +20,34 @@ st.title("💖 연애 성향 미분방정식 연구소")
 st.caption("Created by 김사무 @취미로배우는수학 | [📖 수학으로 세상 읽기](https://math4hobby.tistory.com/)")
 st.write("---")
 
-# URL 파라미터 확인 (딕셔너리 형태로 안전하게 가져오기)
+# URL 파라미터 확인
 params = st.query_params
 
-# 문자열을 안전하게 숫자로 변환하는 함수
+# 문자열을 안전하게 숫자로 변환하는 함수 (리스트/단일값 모두 대응)
 def safe_float(key, default=0.0):
     try:
         val = params.get(key)
         if val is None: return default
-        # 리스트 형태일 경우 첫 번째 요소 추출, 아니면 그대로 변환
-        raw_val = val[0] if isinstance(val, list) else val
-        return float(raw_val)
+        # Streamlit 파라미터가 리스트로 들어오는 경우 대응
+        if isinstance(val, list):
+            return float(val[0])
+        return float(val)
     except:
         return default
 
-# --- 상황 1: 파트너 1 진단 (데이터가 없는 경우) ---
-if not all(k in params for k in ["a", "b", "sx", "init_x"]):
+# 필수 파라미터가 있는지 확인
+has_p1_data = all(k in params for k in ["a", "b", "sx", "init_x"])
+
+# --- 상황 1: 파트너 1 진단 ---
+if not has_p1_data:
     st.header("👤 파트너 1: 정밀 성향 진단")
     with st.form("user1_form"):
-        st.subheader("📍 [자기 감정] 내 마음의 움직임")
         a_1 = st.slider("질문 1. 나는 혼자 있을 때도 내 감정을 평온하게 잘 유지하는 편이다.", -5.0, 5.0, 0.0, step=0.1)
         a_2 = st.slider("질문 2. 나는 한 번 사랑에 빠지면 감정이 제어하기 힘들 정도로 커지는 편이다.", -5.0, 5.0, 0.0, step=0.1)
-        st.subheader("📍 [상대 반응] 파트너에 대한 태도")
         b_1 = st.slider("질문 3. 상대방이 애정을 표현하면 나도 즉각적으로 더 큰 애정을 느낀다.", -5.0, 5.0, 0.0, step=0.1)
         b_2 = st.slider("질문 4. 상대방이 너무 가깝게 다가오면 가끔은 부담스럽거나 회피하고 싶다.", -5.0, 5.0, 0.0, step=0.1)
-        st.subheader("📍 [방어기제] 마음을 여는 속도")
         s_1 = st.slider("질문 5. 상대가 확실한 신뢰를 주기 전까지는 어느 정도 거리를 두려고 노력한다.", -5.0, 5.0, 0.0, step=0.1)
         s_2 = st.slider("질문 6. 새로운 사람에게 마음의 문을 완전히 열기까지 시간이 꽤 오래 걸린다.", -5.0, 5.0, 0.0, step=0.1)
-        st.subheader("📍 [첫 만남] 관계의 시작점")
         init_x = st.slider("질문 7. 파트너를 처음 알게 되었을 때 느꼈던 호감의 정도는 어떠했나요?", -5.0, 5.0, 1.0, step=0.1)
         
         if st.form_submit_button("진단 완료 및 공유 링크 생성"):
@@ -56,50 +56,54 @@ if not all(k in params for k in ["a", "b", "sx", "init_x"]):
             st.success("진단 완료! 파트너 2에게 이 링크를 보내세요.")
             st.code(link)
 
-# --- 상황 2: 파트너 2 진단 및 최종 분석 ---
+# --- 상황 2: 파트너 2 진단 및 결과 ---
 else:
     has_p2_data = "d" in params
+    
     if not has_p2_data and not st.session_state.get('result_ready'):
         st.header("👤 파트너 2: 정밀 성향 진단")
         with st.form("user2_form"):
-            st.subheader("📍 [자기 감정]")
             d_1 = st.slider("질문 1. 나는 혼자 있을 때도 내 감정을 평온하게 잘 유지하는 편이다.", -5.0, 5.0, 0.0, step=0.1)
             d_2 = st.slider("질문 2. 나는 한 번 사랑에 빠지면 감정이 제어하기 힘들 정도로 커지는 편이다.", -5.0, 5.0, 0.0, step=0.1)
-            st.subheader("📍 [상대 반응]")
             c_1 = st.slider("질문 3. 상대방이 애정을 표현하면 나도 즉각적으로 더 큰 애정을 느낀다.", -5.0, 5.0, 0.0, step=0.1)
             c_2 = st.slider("질문 4. 상대방이 너무 가깝게 다가오면 가끔은 부담스럽거나 회피하고 싶다.", -5.0, 5.0, 0.0, step=0.1)
-            st.subheader("📍 [방어기제]")
             sy_1 = st.slider("질문 5. 상대가 확실한 신뢰를 주기 전까지는 어느 정도 거리를 두려고 노력한다.", -5.0, 5.0, 0.0, step=0.1)
             sy_2 = st.slider("질문 6. 새로운 사람에게 마음의 문을 완전히 열기까지 시간이 꽤 오래 걸린다.", -5.0, 5.0, 0.0, step=0.1)
-            st.subheader("📍 [첫 만남]")
             init_y = st.slider("질문 7. 파트너를 처음 알게 되었을 때 느꼈던 호감의 정도는 어떠했나요?", -5.0, 5.0, 1.0, step=0.1)
             
             if st.form_submit_button("우리 관계 분석 결과 보기"):
+                # 파트너 1의 값을 안전하게 추출 (리스트 방지)
+                p1_a = safe_float("a")
+                p1_b = safe_float("b")
+                p1_sx = safe_float("sx")
+                p1_ix = safe_float("init_x")
+                
                 calc_d, calc_c, calc_sy = round((d_1 + d_2) / 2, 2), round((c_1 - c_2) / 2, 2), round((sy_1 + sy_2) / 2, 2)
-                res_link = f"{BASE_URL}?a={params['a']}&b={params['b']}&sx={params['sx']}&init_x={params['init_x']}&d={calc_d}&c={calc_c}&sy={calc_sy}&init_y={init_y}"
+                
+                res_link = f"{BASE_URL}?a={p1_a}&b={p1_b}&sx={p1_sx}&init_x={p1_ix}&d={calc_d}&c={calc_c}&sy={calc_sy}&init_y={init_y}"
                 st.session_state['result_ready'] = True
                 st.session_state['res_link'] = res_link
                 st.session_state['p2_vals'] = [calc_d, calc_c, calc_sy, init_y]
                 st.rerun()
-    
-    # 결과 화면 출력
+
     if has_p2_data or st.session_state.get('result_ready'):
         a, b, sx, init_x = safe_float("a"), safe_float("b"), safe_float("sx"), safe_float("init_x")
-        if has_p2_data: d, c, sy, init_y = safe_float("d"), safe_float("c"), safe_float("sy"), safe_float("init_y")
-        else: d, c, sy, init_y = st.session_state['p2_vals']
+        if has_p2_data:
+            d, c, sy, init_y = safe_float("d"), safe_float("c"), safe_float("sy"), safe_float("init_y")
+        else:
+            d, c, sy, init_y = st.session_state['p2_vals']
 
         st.subheader("🔬 최종 관계 시뮬레이션 결과")
         if not has_p2_data:
             st.warning("🔗 파트너 1에게 결과를 공유하려면 아래 링크를 보내주세요.")
             st.code(st.session_state['res_link'])
 
-        # 시작점을 질문 7번 값으로 고정
-        start_point = [init_x, init_y]
-        limit = 15
+        # 시뮬레이션
         t = np.linspace(0, 50, 1000)
-        sol = odeint(love_dynamics, start_point, t, args=(a, b, c, d, sx, sy))
+        sol = odeint(love_dynamics, [init_x, init_y], t, args=(a, b, c, d, sx, sy))
         
-        # 벡터장 계산
+        # 그래프
+        limit = 15
         x_g, y_g = np.meshgrid(np.linspace(-limit, limit, 18), np.linspace(-limit, limit, 18))
         U = a*x_g + b*y_g - 0.1*x_g*(x_g - sx)
         V = c*x_g + d*y_g - 0.1*y_g*(y_g - sy)
@@ -108,29 +112,20 @@ else:
         
 
         fig = ff.create_quiver(x_g, y_g, U/mag, V/mag, scale=0.7, name='기류', line=dict(width=1, color='rgba(150,150,150,0.3)'))
-        mask = (np.abs(sol[:, 0]) <= limit+5) & (np.abs(sol[:, 1]) <= limit+5)
-        safe_sol = sol[mask]
-        
-        if len(safe_sol) > 0:
-            fig.add_trace(go.Scatter(x=safe_sol[:, 0], y=safe_sol[:, 1], mode='lines', line=dict(color='red', width=4), name='사랑의 궤적'))
-            fig.add_trace(go.Scatter(x=[safe_sol[0,0]], y=[safe_sol[0,1]], mode='markers', marker=dict(color='green', size=15, symbol='diamond'), name='첫 만남'))
-            fig.add_trace(go.Scatter(x=[safe_sol[-1,0]], y=[safe_sol[-1,1]], mode='markers', marker=dict(color='orange', size=15, symbol='star'), name='미래의 우리'))
+        fig.add_trace(go.Scatter(x=sol[:, 0], y=sol[:, 1], mode='lines', line=dict(color='red', width=4), name='사랑의 궤적'))
+        fig.add_trace(go.Scatter(x=[sol[0,0]], y=[sol[0,1]], mode='markers', marker=dict(color='green', size=15, symbol='diamond'), name='첫 만남'))
+        fig.add_trace(go.Scatter(x=[sol[-1,0]], y=[sol[-1,1]], mode='markers', marker=dict(color='orange', size=15, symbol='star'), name='미래'))
 
-        fig.update_layout(xaxis=dict(title="파트너 1의 마음", range=[-limit-1, limit+1]), 
-                          yaxis=dict(title="파트너 2의 마음", range=[-limit-1, limit+1]), 
-                          height=600, template="plotly_white")
+        fig.update_layout(xaxis=dict(range=[-limit-1, limit+1]), yaxis=dict(range=[-limit-1, limit+1]), height=600, template="plotly_white")
         st.plotly_chart(fig, use_container_width=True)
 
-        # 분석 리포트
         st.divider()
         st.subheader("📊 연구소의 최종 관계 예보")
-        final_x, final_y = sol[-1]
-        
-        if final_x > 3 and final_y > 3: st.success("✨ **결과: 해피엔딩 수렴형**\n\n두 분의 감정은 시간이 흐를수록 서로를 향해 강력하게 고정됩니다. 축하드려요!")
-        elif final_x < -3 and final_y < -3: st.error("⚠️ **결과: 차가운 발산형**\n\n시간이 지날수록 서로에게 상처를 줄 위험이 큽니다. 대화 방식의 변화가 필요합니다.")
-        else: st.info("💫 **결과: 복합적 기류 발견**\n\n서로의 타이밍이 어긋날 수 있으니 대화와 배려가 중요합니다.")
+        fx, fy = sol[-1]
+        if fx > 3 and fy > 3: st.success("✨ **해피엔딩 수렴형**")
+        elif fx < -3 and fy < -3: st.error("⚠️ **차가운 발산형**")
+        else: st.info("💫 **복합적 기류 발견**")
 
-        # --- 맨 마지막 하단 홍보 섹션 (에러 수정됨) ---
         st.write("---")
         st.markdown(
             """
