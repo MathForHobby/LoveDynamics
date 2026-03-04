@@ -136,3 +136,55 @@ else:
             """, 
             unsafe_allow_html=True
         )
+
+# 최종 결과 페이지 하단에 삽입
+def kakao_share_button(url, title, description):
+    # 여기에 본인의 [JavaScript 키]를 입력하세요
+    kakao_js_key = "9c2fe3b219730ecdc60f8fc6587877e1" 
+    
+    kakao_script = f"""
+    <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.0/kakao.min.js" integrity="sha384-lLeYSTPNCatv7SOn9mZ6YmJ79H8sLpB1lS8MSQ9S3T+Gg" crossorigin="anonymous"></script>
+    <script>
+      if (!Kakao.isInitialized()) {{
+        Kakao.init('{kakao_js_key}');
+      }}
+      function shareKakao() {{
+        Kakao.Share.sendDefault({{
+          objectType: 'feed',
+          content: {{
+            title: '{title}',
+            description: '{description}',
+            imageUrl: 'https://cdn.pixabay.com/photo/2017/09/23/16/39/heart-2779422_1280.png',
+            link: {{
+              mobileWebUrl: '{url}',
+              webUrl: '{url}',
+            }},
+          }},
+          buttons: [
+            {{
+              title: '결과 확인하기',
+              link: {{
+                mobileWebUrl: '{url}',
+                webUrl: '{url}',
+              }},
+            }},
+          ],
+        }});
+      }}
+    </script>
+    <div style="text-align: center; padding: 10px;">
+        <button onclick="shareKakao()" style="background-color: #FEE500; color: #191919; border: none; border-radius: 6px; padding: 10px 20px; font-weight: bold; cursor: pointer;">
+            카카오톡으로 결과 공유하기
+        </button>
+    </div>
+    """
+    components.html(kakao_script, height=100)
+
+# 결과 화면일 때 호출
+if has_p2_data or st.session_state.get('result_ready'):
+    # ... 결과 로직 이후 ...
+    kakao_share_button(
+        url=st.session_state.get('res_link', BASE_URL),
+        title="💖 연애 성향 미분방정식 분석 결과",
+        description="수학으로 풀어본 우리 관계의 미래는?"
+    )
