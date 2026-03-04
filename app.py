@@ -20,17 +20,21 @@ st.title("💖 연애 성향 미분방정식 연구소")
 st.caption("Created by 김사무 @취미로배우는수학 | [📖 수학으로 세상 읽기](https://math4hobby.tistory.com/)")
 st.write("---")
 
+# URL 파라미터 확인 (딕셔너리 형태로 안전하게 가져오기)
 params = st.query_params
 
+# 문자열을 안전하게 숫자로 변환하는 함수
 def safe_float(key, default=0.0):
     try:
         val = params.get(key)
         if val is None: return default
+        # 리스트 형태일 경우 첫 번째 요소 추출, 아니면 그대로 변환
         raw_val = val[0] if isinstance(val, list) else val
         return float(raw_val)
-    except: return default
+    except:
+        return default
 
-# --- 상황 1: 파트너 1 진단 ---
+# --- 상황 1: 파트너 1 진단 (데이터가 없는 경우) ---
 if not all(k in params for k in ["a", "b", "sx", "init_x"]):
     st.header("👤 파트너 1: 정밀 성향 진단")
     with st.form("user1_form"):
@@ -58,7 +62,6 @@ else:
     if not has_p2_data and not st.session_state.get('result_ready'):
         st.header("👤 파트너 2: 정밀 성향 진단")
         with st.form("user2_form"):
-            # 파트너 2 질문 섹션 (동일하게 유지)
             st.subheader("📍 [자기 감정]")
             d_1 = st.slider("질문 1. 나는 혼자 있을 때도 내 감정을 평온하게 잘 유지하는 편이다.", -5.0, 5.0, 0.0, step=0.1)
             d_2 = st.slider("질문 2. 나는 한 번 사랑에 빠지면 감정이 제어하기 힘들 정도로 커지는 편이다.", -5.0, 5.0, 0.0, step=0.1)
@@ -73,12 +76,13 @@ else:
             
             if st.form_submit_button("우리 관계 분석 결과 보기"):
                 calc_d, calc_c, calc_sy = round((d_1 + d_2) / 2, 2), round((c_1 - c_2) / 2, 2), round((sy_1 + sy_2) / 2, 2)
-                res_link = f"{BASE_URL}?a={params['a'][0]}&b={params['b'][0]}&sx={params['sx'][0]}&init_x={params['init_x'][0]}&d={calc_d}&c={calc_c}&sy={calc_sy}&init_y={init_y}"
+                res_link = f"{BASE_URL}?a={params['a']}&b={params['b']}&sx={params['sx']}&init_x={params['init_x']}&d={calc_d}&c={calc_c}&sy={calc_sy}&init_y={init_y}"
                 st.session_state['result_ready'] = True
                 st.session_state['res_link'] = res_link
                 st.session_state['p2_vals'] = [calc_d, calc_c, calc_sy, init_y]
                 st.rerun()
     
+    # 결과 화면 출력
     if has_p2_data or st.session_state.get('result_ready'):
         a, b, sx, init_x = safe_float("a"), safe_float("b"), safe_float("sx"), safe_float("init_x")
         if has_p2_data: d, c, sy, init_y = safe_float("d"), safe_float("c"), safe_float("sy"), safe_float("init_y")
@@ -89,12 +93,13 @@ else:
             st.warning("🔗 파트너 1에게 결과를 공유하려면 아래 링크를 보내주세요.")
             st.code(st.session_state['res_link'])
 
-        # 시뮬레이션 및 그래프
+        # 시작점을 질문 7번 값으로 고정
         start_point = [init_x, init_y]
         limit = 15
         t = np.linspace(0, 50, 1000)
         sol = odeint(love_dynamics, start_point, t, args=(a, b, c, d, sx, sy))
         
+        # 벡터장 계산
         x_g, y_g = np.meshgrid(np.linspace(-limit, limit, 18), np.linspace(-limit, limit, 18))
         U = a*x_g + b*y_g - 0.1*x_g*(x_g - sx)
         V = c*x_g + d*y_g - 0.1*y_g*(y_g - sy)
@@ -111,7 +116,9 @@ else:
             fig.add_trace(go.Scatter(x=[safe_sol[0,0]], y=[safe_sol[0,1]], mode='markers', marker=dict(color='green', size=15, symbol='diamond'), name='첫 만남'))
             fig.add_trace(go.Scatter(x=[safe_sol[-1,0]], y=[safe_sol[-1,1]], mode='markers', marker=dict(color='orange', size=15, symbol='star'), name='미래의 우리'))
 
-        fig.update_layout(xaxis=dict(title="파트너 1", range=[-limit-1, limit+1]), yaxis=dict(title="파트너 2", range=[-limit-1, limit+1]), height=600, template="plotly_white")
+        fig.update_layout(xaxis=dict(title="파트너 1의 마음", range=[-limit-1, limit+1]), 
+                          yaxis=dict(title="파트너 2의 마음", range=[-limit-1, limit+1]), 
+                          height=600, template="plotly_white")
         st.plotly_chart(fig, use_container_width=True)
 
         # 분석 리포트
@@ -119,11 +126,11 @@ else:
         st.subheader("📊 연구소의 최종 관계 예보")
         final_x, final_y = sol[-1]
         
-        if final_x > 3 and final_y > 3: st.success("✨ **결과: 해피엔딩 수렴형**")
-        elif final_x < -3 and final_y < -3: st.error("⚠️ **결과: 차가운 발산형**")
-        else: st.info("💫 **결과: 복합적 기류 발견**")
+        if final_x > 3 and final_y > 3: st.success("✨ **결과: 해피엔딩 수렴형**\n\n두 분의 감정은 시간이 흐를수록 서로를 향해 강력하게 고정됩니다. 축하드려요!")
+        elif final_x < -3 and final_y < -3: st.error("⚠️ **결과: 차가운 발산형**\n\n시간이 지날수록 서로에게 상처를 줄 위험이 큽니다. 대화 방식의 변화가 필요합니다.")
+        else: st.info("💫 **결과: 복합적 기류 발견**\n\n서로의 타이밍이 어긋날 수 있으니 대화와 배려가 중요합니다.")
 
-        # --- 맨 마지막 하단 홍보 섹션 ---
+        # --- 맨 마지막 하단 홍보 섹션 (에러 수정됨) ---
         st.write("---")
         st.markdown(
             """
@@ -132,5 +139,5 @@ else:
                 <p>수학으로 연애를 해석하는 곳, <a href="https://math4hobby.tistory.com/" target="_blank">취미로 배우는 수학 블로그</a>를 방문해보세요!</p>
             </div>
             """, 
-            unsafe_allow_stdio=True, unsafe_allow_html=True
+            unsafe_allow_html=True
         )
